@@ -2,7 +2,7 @@
 
 ## Action Output
 
-https://github.com/JPKribs/jellyfin-blog-stateofthefin/pull/1
+[Assembles all components then archives the versions in `/current`](https://github.com/JPKribs/jellyfin-blog-stateofthefin/pull/1)
 
 ## January Example
 
