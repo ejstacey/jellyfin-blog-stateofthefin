@@ -2,4 +2,4 @@
 
 ## January Example
 
-https://github.com/user-attachments/assets/January%20Scrolling.mov
+![January Scrolling](January%20Scrolling.gif)

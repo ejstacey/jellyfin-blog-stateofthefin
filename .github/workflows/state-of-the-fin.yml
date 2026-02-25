@@ -37,8 +37,13 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout -b "${BRANCH}"
           git add blog/ archive/ current/
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
           git commit -m "State of the Fin ${DATE}"
           git push -u origin "${BRANCH}"
+          gh label create "state-of-the-fin" --color "6f42c1" --description "Monthly State of the Fin report" 2>/dev/null || true
           gh pr create \
             --title "State of the Fin ${DATE}" \
             --body "Auto-generated State of the Fin report for review." \
