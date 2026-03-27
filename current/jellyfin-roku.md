@@ -7,18 +7,6 @@ author_url: https://github.com/1hitsong
 
 #### What's New
 
-Summarize the highlights for this client during the reporting period.
+Since the last State of the Fin blog post, major version v3.1 of the roku client was released. The current version is [v3.1.7](https://github.com/jellyfin/jellyfin-roku/releases/tag/3.1.7). This has incorporated multiple fixes for HDR, display issues, and more.
 
-#### Changes
-
-- Change or fix #1
-- Change or fix #2
-- Change or fix #3
-
-#### Known Issues
-
-- Any known issues or regressions to call out
-
-#### What's Next
-
-What's planned or in progress for the next period.
+Thanks to all contributors!
