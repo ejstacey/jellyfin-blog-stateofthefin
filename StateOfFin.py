@@ -53,10 +53,7 @@ def load_contributors() -> ContributorsConfig:
         name = m.get("name", m["username"])
         url = m.get("url", f"https://github.com/{m['username']}")
         for repo in m.get("repos", []):
-            key = repo.lower()
-            if key not in repo_maintainers:
-                repo_maintainers[key] = []
-            repo_maintainers[key].append((name, url))
+            repo_maintainers.setdefault(repo.lower(), []).append((name, url))
     return ContributorsConfig(maintainers, maintainer_usernames, blacklist, hidden, repo_maintainers)
 
 
@@ -153,60 +150,51 @@ class RangeData:
     repo_stats: dict[str, RepoStats]
 
 
-# MARK: - DateUtilities
+# MARK: - Date Utilities
 
-class DateUtilities:
+def get_month_ranges(start_date: datetime, end_date: datetime) -> list[tuple[datetime, datetime, str]]:
+    ranges = []
+    current = start_date.replace(day=1)
+    end_month = end_date.replace(day=1)
 
-    @staticmethod
-    def get_month_ranges(start_date: datetime, end_date: datetime) -> list[tuple[datetime, datetime, str]]:
-        ranges = []
-        current = start_date.replace(day=1)
-        end_month = end_date.replace(day=1)
-
-        while current <= end_month:
-            if current.month == 12:
-                next_month = current.replace(year=current.year + 1, month=1)
-            else:
-                next_month = current.replace(month=current.month + 1)
-            month_end = next_month - timedelta(days=1)
-
-            actual_start = max(current, start_date)
-            actual_end = min(month_end, end_date)
-
-            display = current.strftime("%b %Y")
-            ranges.append((actual_start, actual_end, display))
-
-            current = next_month
-
-        return ranges
-
-    @staticmethod
-    def get_trailing_months(end_date: datetime, months: int = 12) -> list[tuple[datetime, datetime, str]]:
-        ranges = []
-
-        if end_date.month == 12:
-            next_month_first = datetime(end_date.year + 1, 1, 1)
+    while current <= end_month:
+        if current.month == 12:
+            next_month = current.replace(year=current.year + 1, month=1)
         else:
-            next_month_first = datetime(end_date.year, end_date.month + 1, 1)
-        last_day_of_end_month = next_month_first - timedelta(days=1)
+            next_month = current.replace(month=current.month + 1)
+        month_end = next_month - timedelta(days=1)
 
-        end_month_complete = (end_date.day == last_day_of_end_month.day)
+        actual_start = max(current, start_date)
+        actual_end = min(month_end, end_date)
 
-        if end_month_complete:
-            current = next_month_first
-        else:
-            current = end_date.replace(day=1)
+        display = current.strftime("%b %Y")
+        ranges.append((actual_start, actual_end, display))
 
-        for _ in range(months):
-            prev_month = current - timedelta(days=1)
-            month_start = prev_month.replace(day=1)
-            month_end = prev_month
-            display = month_start.strftime("%b")
-            ranges.append((month_start, month_end, display))
-            current = month_start
+        current = next_month
 
-        ranges.reverse()
-        return ranges
+    return ranges
+
+
+def get_trailing_months(end_date: datetime, months: int = 12) -> list[tuple[datetime, datetime, str]]:
+    ranges = []
+
+    # Always include the current (possibly partial) month
+    current_month_start = end_date.replace(day=1)
+    display = current_month_start.strftime("%b")
+    ranges.append((current_month_start, end_date, display))
+
+    # Then walk backwards for the remaining months
+    current = current_month_start
+    for _ in range(months - 1):
+        prev_month = current - timedelta(days=1)
+        month_start = prev_month.replace(day=1)
+        month_end = prev_month
+        display = month_start.strftime("%b")
+        ranges.append((month_start, month_end, display))
+        current = month_start
+
+    ranges.reverse()
+    return ranges
 
 
 # MARK: - DataCollector
@@ -370,7 +358,7 @@ class DataCollector:
         print(f"Collecting data from {start_str} to {end_str}...", file=sys.stderr)
 
         # Monthly stats for the period
-        month_ranges = DateUtilities.get_month_ranges(start_date, end_date)
+        month_ranges = get_month_ranges(start_date, end_date)
         monthly_stats: list[MonthlyStats] = []
         all_contributors: set[str] = set()
 
@@ -397,7 +385,7 @@ class DataCollector:
 
         # 12-month trailing chart data
         print("  Fetching 12-month chart data...", file=sys.stderr)
-        chart_ranges = DateUtilities.get_trailing_months(end_date, 12)
+        chart_ranges = get_trailing_months(end_date, 12)
         chart_monthly_stats: list[MonthlyStats] = []
 
         # Batch-fetch contributor counts for all 12 months in one search
@@ -633,7 +621,6 @@ def generate_releases(data: RangeData) -> str:
     return "\n".join(lines)
 
 
-
 def _render_repo_heading(repo_input: RepoInput, config_display_name: str) -> str:
     """Render a repo heading, using frontmatter client_name/url if available."""
     name = repo_input.client_name or config_display_name
@@ -840,9 +827,9 @@ def parse_args() -> argparse.Namespace:
         description="Generate State of the Fin blog post from current/ inputs and GitHub stats.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-The script collects data for the previous month and uses today's date for
-the output path and frontmatter. It reads repo notes from current/, fetches
-GitHub stats, fills the template, and outputs to blog/YEAR/MM-DD-state-of-the-fin/.
+The script collects data from the last published blog post date to now,
+reads repo notes from current/, fetches GitHub stats, fills the template,
+and outputs to blog/YEAR/MM-DD-state-of-the-fin/.
 
 Examples:
   %(prog)s                          # Generate report using today's date
@@ -881,10 +868,11 @@ def main() -> None:
     print(f"  Period: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}", file=sys.stderr)
 
     # Read inputs
-    input_dir = args.input_dir if args.input_dir else CURRENT_DIR
     if args.input_dir:
         input_dir = os.path.abspath(args.input_dir)
         print(f"  Input dir: {input_dir}", file=sys.stderr)
+    else:
+        input_dir = CURRENT_DIR
     repo_inputs, overview_content, other_title, other_content = read_current_inputs(input_dir)
     overview = parse_overview(overview_content)
 
