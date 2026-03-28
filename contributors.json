@@ -70,7 +70,7 @@
       "username": "andrewrabert",
       "name": "Andrew Rabert",
       "url": "https://github.com/andrewrabert",
-      "repos": ["jellyfin-desktop"]
+      "repos": ["jellyfin-desktop", "jellyfin-desktop-qt"]
     }
   ],
   "blacklist": [
